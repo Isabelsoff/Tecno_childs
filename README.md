@@ -2,7 +2,8 @@
 
 
  ## Objetivo del proyecto
- -En el Parque Biblioteca Doce de Octubre queremos transformar las habilidades técnicas y artísticas de los jóvenes en modelos de negocio rentables, mediante formación en gestión empresarial, uso de tecnologías Makerspace y la creación de canales de comercialización locales."
+-En el Parque Biblioteca Doce de Octubre queremos transformar las habilidades técnicas y artísticas de los jóvenes en modelos de negocio rentables, mediante formación en gestión empresarial, uso de tecnologías Makerspace y la creación de canales de comercialización locales."
+ 
  ---
  ## Objetivos especificos
  -Identificación y Vocación: Detectar el perfil productivo de 20 jóvenes mediante metodologías de experimentación activa (sin encuestas tradicionales), alineando su talento con la demanda del mercado.
