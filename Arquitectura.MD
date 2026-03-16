@@ -1,1 +1,1 @@
-El sistema consiste en una plataforma web que permite a niños y jóvenes explorar curiosidades, descubrir áreas de interés y acceder a cursos vocacionales que fomenten el emprendimiento y el aprendizaje.
+
