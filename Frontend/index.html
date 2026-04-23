@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>TecnoChilds - Descubre tu Potencial</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <div class="logo-container">
+        <img src="Img/TecnoChilds.png" alt="Banner TecnoChilds">
+        <h1 class="titulo">TecnoChilds</h1>
+        <p>Cree y confía en los jóvenes, son nuestro futuro.</p>
+    </div>
+</header>
+
+<nav class="menu-nav">
+    <button onclick="mostrar('registro')">Registro</button>
+    <button onclick="mostrar('login')">Login</button>
+    <button onclick="mostrar('perfil')">Perfil</button>
+    <button onclick="mostrar('testVocacional')">Test Vocacional</button>
+</nav>
+
+<main class="contenedor-principal">
+    
+    <section id="registro" class="seccion-pantalla">
+        <h2>Crear Cuenta</h2>
+        <div class="formulario">
+            <input id="nombre" placeholder="Nombre completo">
+            <input id="email" placeholder="Correo electrónico">
+            <input id="password" placeholder="Contraseña" type="password">
+            <input id="edad" placeholder="Tu edad" type="number">
+            <button class="btn-accion" onclick="registrar()">Registrar</button>
+        </div>
+    </section>
+
+    <section id="login" class="seccion-pantalla" style="display:none;">
+        <h2>Bienvenido de nuevo</h2>
+        <div class="formulario">
+            <input id="emailLogin" placeholder="Correo electrónico">
+            <input id="passwordLogin" placeholder="Contraseña" type="password">
+            <button class="btn-accion" onclick="login()">Iniciar sesión</button>
+        </div>
+    </section>
+
+    <section id="perfil" class="seccion-pantalla" style="display:none;">
+        <h2>Mi Perfil</h2>
+        <div id="infoPerfil" class="perfil-card">
+            <p>Cargando datos...</p>
+        </div>
+    </section>
+
+    <section id="testVocacional" class="seccion-pantalla" style="display:none;">
+        <h2>Test Vocacional</h2>
+        <p>Responde con sinceridad para darte la mejor recomendación.</p>
+        <div id="contenedorPreguntas"></div>
+        <button class="btn-accion" onclick="enviarRespuestas()">Finalizar Test</button>
+    </section>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
