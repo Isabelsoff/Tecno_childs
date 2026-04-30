@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TecnoChilds - Plataforma vocacional que ayuda a jóvenes a descubrir su potencial profesional">
+    <title>TecnoChilds - Descubre tu Potencial</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Contenedor de notificaciones Toast -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- ====== NAVEGACIÓN ====== -->
+<nav id="navbar" class="navbar">
+    <div class="nav-brand" onclick="mostrar('landing')">
+        <img src="Img/TecnoChilds.png" alt="Logo" class="nav-logo">
+        <span class="nav-title">TecnoChilds</span>
+    </div>
+    <div class="nav-links">
+        <button onclick="mostrar('registro')" class="nav-btn" id="navRegistro">Registro</button>
+        <button onclick="mostrar('login')" class="nav-btn" id="navLogin">Iniciar Sesión</button>
+        <button onclick="mostrar('perfil')" class="nav-btn nav-btn-auth" id="navPerfil" style="display:none;">Mi Perfil</button>
+        <button onclick="mostrar('testVocacional')" class="nav-btn nav-btn-auth" id="navTest" style="display:none;">Test Vocacional</button>
+        <button onclick="cerrarSesion()" class="nav-btn nav-btn-logout" id="navLogout" style="display:none;">Cerrar Sesión</button>
+    </div>
+</nav>
+
+<!-- ====== BANNER ====== -->
+<header class="banner">
+    <img src="Img/TecnoChilds.png" alt="Banner TecnoChilds" class="banner-img">
+</header>
+
+<!-- ====== CONTENIDO PRINCIPAL ====== -->
+<main class="main-content">
+
+    <!-- LANDING / BIENVENIDA -->
+    <section id="landing" class="seccion-pantalla">
+        <div class="hero">
+            <div class="hero-content">
+                <h1 class="hero-title">Descubre tu <span class="gradient-text">Potencial</span></h1>
+                <p class="hero-subtitle">Cree y confía en los jóvenes, son nuestro futuro.</p>
+                <p class="hero-desc">Realiza nuestro test vocacional y descubre qué camino profesional se adapta mejor a tus habilidades, intereses y valores.</p>
+                <div class="hero-buttons">
+                    <button onclick="mostrar('registro')" class="btn-primary btn-lg">Comenzar Ahora</button>
+                    <button onclick="mostrar('login')" class="btn-secondary btn-lg">Ya tengo cuenta</button>
+                </div>
+            </div>
+            <div class="hero-features">
+                <div class="feature-card">
+                    <div class="feature-icon icon-test">◎</div>
+                    <h3>Test Vocacional</h3>
+                    <p>8 preguntas diseñadas para identificar tu perfil profesional</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon icon-resultados">◈</div>
+                    <h3>Resultados Detallados</h3>
+                    <p>Análisis completo con recomendaciones de carreras</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon icon-historial">⟳</div>
+                    <h3>Historial</h3>
+                    <p>Guarda y compara tus resultados a lo largo del tiempo</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- REGISTRO -->
+    <section id="registro" class="seccion-pantalla" style="display:none;">
+        <div class="form-card glass-card">
+            <div class="form-header">
+                <div class="form-icon icon-registro">✦</div>
+                <h2>Crear Cuenta</h2>
+                <p>Únete y descubre tu vocación</p>
+            </div>
+            <div class="form-body">
+                <div class="input-group">
+                    <input id="nombre" type="text" placeholder=" " required>
+                    <label for="nombre">Nombre completo</label>
+                </div>
+                <div class="input-group">
+                    <input id="email" type="email" placeholder=" " required>
+                    <label for="email">Correo electrónico</label>
+                </div>
+                <div class="input-group">
+                    <input id="password" type="password" placeholder=" " required>
+                    <label for="password">Contraseña</label>
+                    <button type="button" class="btn-toggle-pass" onclick="togglePassword('password', this)">⊙</button>
+                </div>
+                <div class="input-group">
+                    <input id="passwordConfirm" type="password" placeholder=" " required>
+                    <label for="passwordConfirm">Confirmar contraseña</label>
+                    <button type="button" class="btn-toggle-pass" onclick="togglePassword('passwordConfirm', this)">⊙</button>
+                </div>
+                <div class="input-group">
+                    <input id="edad" type="number" placeholder=" " min="10" max="25">
+                    <label for="edad">Tu edad</label>
+                </div>
+                <button class="btn-primary btn-full" onclick="registrar()">
+                    <span class="btn-text">Crear cuenta</span>
+                    <span class="btn-loader" style="display:none;"></span>
+                </button>
+                <p class="form-footer-text">¿Ya tienes cuenta? <a href="#" onclick="mostrar('login')">Inicia sesión</a></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- LOGIN -->
+    <section id="login" class="seccion-pantalla" style="display:none;">
+        <div class="form-card glass-card">
+            <div class="form-header">
+                <div class="form-icon icon-login">↩</div>
+                <h2>Bienvenido de nuevo</h2>
+                <p>Inicia sesión para continuar</p>
+            </div>
+            <div class="form-body">
+                <div class="input-group">
+                    <input id="emailLogin" type="email" placeholder=" " required>
+                    <label for="emailLogin">Correo electrónico</label>
+                </div>
+                <div class="input-group">
+                    <input id="passwordLogin" type="password" placeholder=" " required>
+                    <label for="passwordLogin">Contraseña</label>
+                    <button type="button" class="btn-toggle-pass" onclick="togglePassword('passwordLogin', this)">⊙</button>
+                </div>
+                <button class="btn-primary btn-full" onclick="login()">
+                    <span class="btn-text">Iniciar sesión</span>
+                    <span class="btn-loader" style="display:none;"></span>
+                </button>
+                <p class="form-footer-text">¿No tienes cuenta? <a href="#" onclick="mostrar('registro')">Regístrate aquí</a></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- PERFIL -->
+    <section id="perfil" class="seccion-pantalla" style="display:none;">
+        <div class="perfil-container">
+            <!-- Tarjeta de info del usuario -->
+            <div class="perfil-info glass-card" id="infoPerfil">
+                <p>Cargando datos...</p>
+            </div>
+            <!-- Último resultado -->
+            <div class="perfil-resultado glass-card" id="ultimoResultado" style="display:none;">
+                <h3>Tu Último Resultado</h3>
+                <div id="contenidoUltimoResultado"></div>
+            </div>
+            <!-- Historial -->
+            <div class="perfil-historial glass-card" id="seccionHistorial" style="display:none;">
+                <h3>Historial de Tests</h3>
+                <div id="contenedorHistorial"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TEST VOCACIONAL -->
+    <section id="testVocacional" class="seccion-pantalla" style="display:none;">
+        <div class="test-container glass-card">
+            <div class="test-header">
+                <h2>Test Vocacional</h2>
+                <p>Selecciona la opción que más te identifique en cada pregunta</p>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="barraProgreso"></div>
+                </div>
+                <span class="progress-text" id="textoProgreso">Pregunta 1 de 8</span>
+            </div>
+            <div id="contenedorPreguntas" class="test-body"></div>
+        </div>
+    </section>
+
+    <!-- RESULTADOS -->
+    <section id="resultados" class="seccion-pantalla" style="display:none;">
+        <div class="resultados-container">
+            <div class="resultado-header glass-card">
+                <h2>¡Resultados de tu Test!</h2>
+                <div id="contenidoResultados"></div>
+            </div>
+            <div class="resultado-actions">
+                <button class="btn-primary" onclick="mostrar('perfil')">Ver mi Perfil</button>
+                <button class="btn-secondary" onclick="mostrar('testVocacional')">Repetir Test</button>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ====== FOOTER ====== -->
+<footer class="footer">
+    <div class="footer-content">
+        <p>© 2026 <strong>TecnoChilds</strong> — Cree y confía en los jóvenes</p>
+        <p class="footer-sub">Plataforma de orientación vocacional para jóvenes</p>
+    </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
