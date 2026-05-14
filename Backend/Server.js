@@ -49,17 +49,30 @@ async function inicializarDB() {
             }
         }
 
-        pool = mysql.createPool({
-            host: dbHost,
-            user: dbUser,
-            password: dbPassword,
-            database: dbName,
-            port: dbPort,
-            ssl: { rejectUnauthorized: false },
-            waitForConnections: true,
-            connectionLimit: 10,
-            queueLimit: 0
-        });
+        let poolConfig;
+        if (process.env.DB_URI) {
+            poolConfig = {
+                uri: process.env.DB_URI,
+                ssl: { rejectUnauthorized: false },
+                waitForConnections: true,
+                connectionLimit: 10,
+                queueLimit: 0
+            };
+        } else {
+            poolConfig = {
+                host: dbHost,
+                user: dbUser,
+                password: dbPassword,
+                database: dbName,
+                port: dbPort,
+                ssl: { rejectUnauthorized: false },
+                waitForConnections: true,
+                connectionLimit: 10,
+                queueLimit: 0
+            };
+        }
+
+        pool = mysql.createPool(poolConfig);
 
         await crearTablas();
         await insertarPreguntas();
