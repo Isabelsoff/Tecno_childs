@@ -23,6 +23,7 @@
         <button onclick="mostrar('registro')" class="nav-btn" id="navRegistro">Registro</button>
         <button onclick="mostrar('login')" class="nav-btn" id="navLogin">Iniciar Sesión</button>
         <button onclick="mostrar('perfil')" class="nav-btn nav-btn-auth" id="navPerfil" style="display:none;">Mi Perfil</button>
+        <button onclick="mostrar('misRutas')" class="nav-btn nav-btn-auth" id="navRutas" style="display:none;">Mis Rutas</button>
         <button onclick="mostrar('testVocacional')" class="nav-btn nav-btn-auth" id="navTest" style="display:none;">Test Vocacional</button>
         <button onclick="cerrarSesion()" class="nav-btn nav-btn-logout" id="navLogout" style="display:none;">Cerrar Sesión</button>
     </div>
@@ -169,7 +170,6 @@
             <div id="contenedorPreguntas" class="test-body"></div>
         </div>
     </section>
-
     <!-- RESULTADOS -->
     <section id="resultados" class="seccion-pantalla" style="display:none;">
         <div class="resultados-container">
@@ -178,8 +178,56 @@
                 <div id="contenidoResultados"></div>
             </div>
             <div class="resultado-actions">
-                <button class="btn-primary" onclick="mostrar('perfil')">Ver mi Perfil</button>
+                <button class="btn-primary" onclick="mostrar('misRutas')">Ir a mis Cursos</button>
+                <button class="btn-secondary" onclick="mostrar('perfil')">Ver mi Perfil</button>
                 <button class="btn-secondary" onclick="mostrar('testVocacional')">Repetir Test</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- MIS RUTAS (CURSOS) -->
+    <section id="misRutas" class="seccion-pantalla" style="display:none;">
+        <div class="rutas-container">
+            <div class="rutas-header glass-card">
+                <div class="form-icon icon-resultados">◈</div>
+                <h2>Mis Rutas de Aprendizaje</h2>
+                <p>Cursos personalizados según tu perfil vocacional</p>
+            </div>
+            <div id="contenedorRutas" class="rutas-grid"></div>
+        </div>
+    </section>
+
+    <!-- VISTA DE CURSO (MÓDULOS) -->
+    <section id="vistaCurso" class="seccion-pantalla" style="display:none;">
+        <div class="curso-header glass-card">
+            <button class="btn-secondary" onclick="mostrar('misRutas')" style="margin-bottom:20px;">← Volver a mis rutas</button>
+            <h2 id="tituloCurso" class="gradient-text">Nombre del Curso</h2>
+            <p id="descCurso" style="color: var(--text-secondary); margin-bottom:24px;">Descripción del curso...</p>
+            <div id="contenedorModulos" class="modulos-grid"></div>
+        </div>
+    </section>
+
+    <!-- VISTA DE MÓDULO (CONTENIDO) -->
+    <section id="vistaModulo" class="seccion-pantalla" style="display:none;">
+        <div class="modulo-container">
+            <div class="modulo-card glass-card">
+                <button class="btn-secondary" id="btnVolverCurso" style="margin-bottom:20px;">← Volver al curso</button>
+                <h2 id="tituloModulo" class="gradient-text" style="margin-bottom:24px;">Título del Módulo</h2>
+                
+                <div class="video-wrapper" id="contenedorVideo" style="margin-bottom:30px;"></div>
+                
+                <div class="lectura-card" style="margin-bottom:40px;">
+                    <div id="contenedorLectura" class="lectura-content"></div>
+                </div>
+                
+                <div class="quiz-section glass-card" id="seccionQuiz" style="background: rgba(255,255,255,0.02);">
+                    <h3 style="margin-bottom:20px; color: var(--accent-primary);">✦ Quiz de Conocimiento</h3>
+                    <div id="preguntaQuiz" class="pregunta-texto" style="font-size: 1.1rem; text-align: left;"></div>
+                    <div id="opcionesQuiz" class="opciones-grid" style="margin-top:20px;"></div>
+                    <button id="btnSiguienteQuiz" class="btn-primary" style="display:none; margin-top:24px; width:100%;">
+                        Siguiente Pregunta
+                    </button>
+                </div>
             </div>
         </div>
     </section>

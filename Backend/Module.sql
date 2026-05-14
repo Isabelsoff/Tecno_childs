@@ -1,15 +1,6 @@
--- =============================================
--- TecnoChilds - Esquema de Base de Datos (MySQL)
--- =============================================
-
--- Crear la base de datos si no existe
-CREATE DATABASE IF NOT EXISTS tecnochilds CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS tecnochilds;
 USE tecnochilds;
 
--- -----------------------------------------
--- Tabla: usuarios
--- Almacena la información de cada usuario registrado.
--- -----------------------------------------
 CREATE TABLE IF NOT EXISTS usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
@@ -19,12 +10,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
     fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- -----------------------------------------
--- Tabla: preguntas
--- Cada pregunta del test vocacional con sus opciones en formato JSON.
--- El campo "opciones" contiene un arreglo JSON donde cada opción
--- tiene un texto y un perfil asociado (cientifico, creativo, social, practico).
--- -----------------------------------------
 CREATE TABLE IF NOT EXISTS preguntas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     texto VARCHAR(500) NOT NULL,
@@ -32,11 +17,6 @@ CREATE TABLE IF NOT EXISTS preguntas (
     opciones JSON NOT NULL
 );
 
--- -----------------------------------------
--- Tabla: respuestas
--- Guarda cada respuesta individual del usuario.
--- "perfil" indica a qué perfil vocacional corresponde la opción elegida.
--- -----------------------------------------
 CREATE TABLE IF NOT EXISTS respuestas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     usuario_id INT NOT NULL,
@@ -48,12 +28,6 @@ CREATE TABLE IF NOT EXISTS respuestas (
     FOREIGN KEY (pregunta_id) REFERENCES preguntas(id)
 );
 
--- -----------------------------------------
--- Tabla: resultados
--- Almacena el análisis completo de cada test realizado.
--- "puntajes" es un JSON con los puntos por perfil.
--- "recomendaciones" es un JSON con las carreras sugeridas.
--- -----------------------------------------
 CREATE TABLE IF NOT EXISTS resultados (
     id INT AUTO_INCREMENT PRIMARY KEY,
     usuario_id INT NOT NULL,
@@ -64,33 +38,54 @@ CREATE TABLE IF NOT EXISTS resultados (
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );
 
--- -----------------------------------------
--- Insertar las 8 preguntas del test vocacional
--- Cada opción mapea a un perfil: cientifico, creativo, social o practico
--- -----------------------------------------
-DELETE FROM preguntas;
+CREATE TABLE IF NOT EXISTS cursos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    perfil VARCHAR(50) NOT NULL,
+    titulo VARCHAR(200) NOT NULL,
+    descripcion TEXT NOT NULL,
+    icono VARCHAR(10) NOT NULL,
+    orden INT DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS modulos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    curso_id INT NOT NULL,
+    titulo VARCHAR(200) NOT NULL,
+    descripcion TEXT,
+    video_url VARCHAR(500) NOT NULL,
+    lectura TEXT NOT NULL,
+    quiz JSON NOT NULL,
+    orden INT DEFAULT 1,
+    FOREIGN KEY (curso_id) REFERENCES cursos(id)
+);
+
+CREATE TABLE IF NOT EXISTS inscripciones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    curso_id INT NOT NULL,
+    fecha_inscripcion DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_inscripcion (usuario_id, curso_id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+    FOREIGN KEY (curso_id) REFERENCES cursos(id)
+);
+
+CREATE TABLE IF NOT EXISTS progreso_usuario (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    modulo_id INT NOT NULL,
+    puntaje INT NOT NULL DEFAULT 0,
+    total_preguntas INT NOT NULL DEFAULT 3,
+    completado BOOLEAN DEFAULT FALSE,
+    fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_progreso (usuario_id, modulo_id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+    FOREIGN KEY (modulo_id) REFERENCES modulos(id)
+);
 
 INSERT INTO preguntas (id, texto, categoria, opciones) VALUES
 (1, '¿Qué actividad disfrutas más en tu tiempo libre?', 'intereses',
- '[{"texto":"Leer, investigar o aprender cosas nuevas","perfil":"cientifico"},{"texto":"Dibujar, crear música o escribir historias","perfil":"creativo"},{"texto":"Hacer deporte o actividades al aire libre","perfil":"practico"},{"texto":"Ayudar a otros o trabajar en equipo","perfil":"social"}]'),
-
-(2, '¿Qué tipo de problemas te gusta resolver?', 'intereses',
- '[{"texto":"Matemáticos o de lógica","perfil":"cientifico"},{"texto":"Creativos o de diseño","perfil":"creativo"},{"texto":"Técnicos o mecánicos","perfil":"practico"},{"texto":"De comunicación o relaciones","perfil":"social"}]'),
-
-(3, '¿Qué te motiva más en la vida?', 'intereses',
- '[{"texto":"Aprender y descubrir cosas nuevas","perfil":"cientifico"},{"texto":"Crear e innovar","perfil":"creativo"},{"texto":"Construir y reparar","perfil":"practico"},{"texto":"Ayudar y enseñar a otros","perfil":"social"}]'),
-
-(4, '¿Qué materias se te hacen más fáciles en la escuela?', 'habilidades',
- '[{"texto":"Matemáticas y ciencias","perfil":"cientifico"},{"texto":"Artes y música","perfil":"creativo"},{"texto":"Tecnología y computación","perfil":"practico"},{"texto":"Lenguaje, historia o ciencias sociales","perfil":"social"}]'),
-
-(5, '¿Qué tipo de tareas prefieres?', 'habilidades',
- '[{"texto":"Analíticas: calcular, planificar, investigar","perfil":"cientifico"},{"texto":"Creativas: diseñar, inventar, imaginar","perfil":"creativo"},{"texto":"Manuales: construir, reparar, operar","perfil":"practico"},{"texto":"Sociales: enseñar, organizar, comunicar","perfil":"social"}]'),
-
-(6, '¿Qué es más importante para ti en un trabajo?', 'valores',
- '[{"texto":"Resolver problemas complejos","perfil":"cientifico"},{"texto":"Expresar mi creatividad","perfil":"creativo"},{"texto":"Trabajar con herramientas o tecnología","perfil":"practico"},{"texto":"Ayudar a las personas","perfil":"social"}]'),
-
-(7, '¿En qué ambiente te sentirías más cómodo trabajando?', 'contexto',
- '[{"texto":"En un laboratorio o centro de investigación","perfil":"cientifico"},{"texto":"En un estudio o taller creativo","perfil":"creativo"},{"texto":"En una fábrica, taller mecánico o al aire libre","perfil":"practico"},{"texto":"En una escuela, hospital o comunidad","perfil":"social"}]'),
-
-(8, '¿Cómo te imaginas en 5 años?', 'proyeccion',
- '[{"texto":"Estudiando una carrera de ciencias o ingeniería","perfil":"cientifico"},{"texto":"Desarrollando proyectos artísticos o de diseño","perfil":"creativo"},{"texto":"Aprendiendo un oficio técnico o emprendiendo","perfil":"practico"},{"texto":"Trabajando ayudando a otras personas","perfil":"social"}]');
+ '[{"texto":"Leer","perfil":"cientifico"},{"texto":"Dibujar","perfil":"creativo"},{"texto":"Deporte","perfil":"practico"},{"texto":"Ayudar","perfil":"social"}]'),
+(2, '¿Qué problemas te gusta resolver?', 'intereses',
+ '[{"texto":"Lógica","perfil":"cientifico"},{"texto":"Diseño","perfil":"creativo"},{"texto":"Mecánicos","perfil":"practico"},{"texto":"Relaciones","perfil":"social"}]'),
+(3, '¿Qué materias prefieres?', 'habilidades',
+ '[{"texto":"Matemáticas","perfil":"cientifico"},{"texto":"Artes","perfil":"creativo"},{"texto":"Tecnología","perfil":"practico"},{"texto":"Sociales","perfil":"social"}]');

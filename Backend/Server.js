@@ -1,74 +1,78 @@
-// =============================================
-// TecnoChilds - Servidor Backend (Express + MySQL)
-// =============================================
-// Este archivo configura el servidor web, conecta a MySQL,
-// y define todos los endpoints (rutas) de la API.
-
 const express = require("express");
-const mysql = require("mysql2/promise"); // Versión con Promesas para código más limpio
-const bcrypt = require("bcryptjs");       // Para encriptar contraseñas
-const cors = require("cors");             // Para permitir peticiones desde otros orígenes
+const mysql = require("mysql2/promise");
+const bcrypt = require("bcryptjs");
+const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
+
+const CURSOS_CIENTIFICO = require("./cursosData");
+const CURSOS_CREATIVO = require("./cursosCreativo");
+const CURSOS_SOCIAL = require("./cursosSocial");
+const CURSOS_PRACTICO = require("./cursosPractico");
 
 const app = express();
 const PORT = 4000;
 
-// ---- Middlewares ----
-// Middleware = funciones que procesan cada petición antes de llegar a las rutas
-app.use(cors());                          // Permite peticiones cross-origin
-app.use(express.json());                  // Permite recibir JSON en el body de las peticiones
+app.use(cors());
+app.use(express.json());
 
-// Servir archivos estáticos del frontend (HTML, CSS, JS, imágenes)
 const frontendPath = path.resolve(__dirname, "../Frontend");
 app.use(express.static(frontendPath));
 
-// ---- Conexión a MySQL ----
-// Usamos un "pool" de conexiones: es más eficiente que una sola conexión
-// porque permite múltiples consultas simultáneas sin bloquearse.
 let pool;
 
 async function inicializarDB() {
     try {
-        // Primero conectar sin base de datos para poder crearla
-        const conexionInicial = await mysql.createConnection({
-            host: "localhost",
-            user: "root",
-            password: "120140213.s",
-        });
+        const dbHost = process.env.DB_HOST || "localhost";
+        const dbUser = process.env.DB_USER || "root";
+        const dbPassword = process.env.DB_PASSWORD || "120140213.s";
+        const dbName = process.env.DB_NAME || "tecnochilds";
+        const dbPort = process.env.DB_PORT || 3306;
 
-        // Crear la base de datos si no existe
-        await conexionInicial.execute(
-            "CREATE DATABASE IF NOT EXISTS tecnochilds CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-        );
-        await conexionInicial.end();
+        // Intentar crear la base de datos solo si estamos en localhost
+        // En la nube, los proveedores ya te dan la BD creada y bloquean este comando.
+        if (dbHost === "localhost" || dbHost === "127.0.0.1") {
+            try {
+                const conexionInicial = await mysql.createConnection({
+                    host: dbHost,
+                    user: dbUser,
+                    password: dbPassword,
+                    port: dbPort,
+                    ssl: { rejectUnauthorized: false }
+                });
+                await conexionInicial.execute(
+                    `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+                );
+                await conexionInicial.end();
+            } catch (createErr) {
+                console.log("No se pudo ejecutar CREATE DATABASE. Continuando con la conexión directa...");
+            }
+        }
 
-        // Ahora crear el pool conectado a la base de datos
         pool = mysql.createPool({
-            host: "localhost",
-            user: "root",
-            password: "120140213.s",
-            database: "tecnochilds",
+            host: dbHost,
+            user: dbUser,
+            password: dbPassword,
+            database: dbName,
+            port: dbPort,
+            ssl: { rejectUnauthorized: false },
             waitForConnections: true,
-            connectionLimit: 10,      // Máximo 10 conexiones simultáneas
+            connectionLimit: 10,
             queueLimit: 0
         });
 
-        // Crear las tablas
         await crearTablas();
-        // Insertar las preguntas del test
         await insertarPreguntas();
+        await insertarCursos();
 
-        console.log("✅ Base de datos MySQL conectada y tablas verificadas");
+        console.log("Base de datos MySQL conectada y tablas verificadas");
     } catch (error) {
-        console.error("❌ Error al conectar con MySQL:", error.message);
-        console.error("   Asegúrate de que MySQL esté corriendo y verifica usuario/contraseña.");
-        process.exit(1); // Terminar si no hay conexión
+        console.error("Error al conectar con MySQL:", error.message);
+        process.exit(1);
     }
 }
 
 async function crearTablas() {
-    // Tabla de usuarios
     await pool.execute(`
         CREATE TABLE IF NOT EXISTS usuarios (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -80,7 +84,6 @@ async function crearTablas() {
         )
     `);
 
-    // Tabla de preguntas del test vocacional
     await pool.execute(`
         CREATE TABLE IF NOT EXISTS preguntas (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -90,7 +93,6 @@ async function crearTablas() {
         )
     `);
 
-    // Tabla de respuestas individuales
     await pool.execute(`
         CREATE TABLE IF NOT EXISTS respuestas (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -104,7 +106,6 @@ async function crearTablas() {
         )
     `);
 
-    // Tabla de resultados (análisis completo de cada test)
     await pool.execute(`
         CREATE TABLE IF NOT EXISTS resultados (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -116,12 +117,63 @@ async function crearTablas() {
             FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
         )
     `);
+
+    await pool.execute(`
+        CREATE TABLE IF NOT EXISTS cursos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            perfil VARCHAR(50) NOT NULL,
+            titulo VARCHAR(200) NOT NULL,
+            descripcion TEXT NOT NULL,
+            icono VARCHAR(10) NOT NULL,
+            orden INT DEFAULT 1
+        )
+    `);
+
+    await pool.execute(`
+        CREATE TABLE IF NOT EXISTS modulos (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            curso_id INT NOT NULL,
+            titulo VARCHAR(200) NOT NULL,
+            descripcion TEXT,
+            video_url VARCHAR(500) NOT NULL,
+            lectura TEXT NOT NULL,
+            quiz JSON NOT NULL,
+            orden INT DEFAULT 1,
+            FOREIGN KEY (curso_id) REFERENCES cursos(id)
+        )
+    `);
+
+    await pool.execute(`
+        CREATE TABLE IF NOT EXISTS inscripciones (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            usuario_id INT NOT NULL,
+            curso_id INT NOT NULL,
+            fecha_inscripcion DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_inscripcion (usuario_id, curso_id),
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+            FOREIGN KEY (curso_id) REFERENCES cursos(id)
+        )
+    `);
+
+    await pool.execute(`
+        CREATE TABLE IF NOT EXISTS progreso_usuario (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            usuario_id INT NOT NULL,
+            modulo_id INT NOT NULL,
+            puntaje INT NOT NULL DEFAULT 0,
+            total_preguntas INT NOT NULL DEFAULT 3,
+            completado BOOLEAN DEFAULT FALSE,
+            fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_progreso (usuario_id, modulo_id),
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+            FOREIGN KEY (modulo_id) REFERENCES modulos(id)
+        )
+    `);
 }
 
 async function insertarPreguntas() {
-    // Verificar si ya existen preguntas
     const [rows] = await pool.execute("SELECT COUNT(*) as total FROM preguntas");
-    if (rows[0].total > 0) return; // Ya hay preguntas, no insertar de nuevo
+    if (rows[0].total > 0) return;
 
     const preguntas = [
         {
@@ -212,70 +264,76 @@ async function insertarPreguntas() {
             [p.texto, p.categoria, JSON.stringify(p.opciones)]
         );
     }
-    console.log("📝 Preguntas del test insertadas correctamente");
 }
 
-// ---- Mapa de recomendaciones por perfil vocacional ----
-// Esto define qué carreras se recomiendan según el perfil dominante
+async function insertarCursos() {
+    const [rows] = await pool.execute("SELECT COUNT(*) as total FROM cursos");
+    if (rows[0].total > 0) return;
+
+    const todosCursos = [...CURSOS_CIENTIFICO, ...CURSOS_CREATIVO, ...CURSOS_SOCIAL, ...CURSOS_PRACTICO];
+
+    for (const curso of todosCursos) {
+        const [result] = await pool.execute(
+            "INSERT INTO cursos (perfil, titulo, descripcion, icono, orden) VALUES (?, ?, ?, ?, ?)",
+            [curso.perfil, curso.titulo, curso.descripcion, curso.icono, curso.orden]
+        );
+        const cursoId = result.insertId;
+
+        for (const modulo of curso.modulos) {
+            await pool.execute(
+                "INSERT INTO modulos (curso_id, titulo, descripcion, video_url, lectura, quiz, orden) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [cursoId, modulo.titulo, modulo.descripcion, modulo.video_url, modulo.lectura, JSON.stringify(modulo.quiz), modulo.orden]
+            );
+        }
+    }
+}
+
 const PERFILES = {
     cientifico: {
         nombre: "Científico-Tecnológico",
-        emoji: "🔬",
+        icono: "△",
         descripcion: "Tienes una mente analítica y curiosa. Te apasiona entender cómo funcionan las cosas y resolver problemas con lógica.",
         carreras: ["Ingeniería", "Medicina", "Biología", "Física", "Programación", "Matemáticas"]
     },
     creativo: {
         nombre: "Artístico-Creativo",
-        emoji: "🎨",
+        icono: "◇",
         descripcion: "Tienes gran imaginación y sensibilidad artística. Te expresas mejor a través del arte y la creatividad.",
         carreras: ["Diseño Gráfico", "Arquitectura", "Música", "Cine y Animación", "Publicidad", "Arte Digital"]
     },
     social: {
         nombre: "Social-Humanístico",
-        emoji: "🤝",
+        icono: "○",
         descripcion: "Te importan las personas y la sociedad. Tienes empatía, vocación de servicio y habilidades de comunicación.",
         carreras: ["Psicología", "Educación", "Trabajo Social", "Derecho", "Enfermería", "Comunicación"]
     },
     practico: {
         nombre: "Práctico-Técnico",
-        emoji: "🔧",
+        icono: "□",
         descripcion: "Eres hábil con las manos y la tecnología. Disfrutas resolver problemas prácticos del mundo real.",
         carreras: ["Mecatrónica", "Electrónica", "Gastronomía", "Construcción", "Agricultura", "Técnico en Sistemas"]
     }
 };
 
-// =============================================
-// RUTAS DE LA API
-// =============================================
-
-// ---- REGISTRO de usuario ----
-// Recibe: { nombre, email, password, edad }
-// La contraseña se encripta con bcrypt antes de guardarla
 app.post("/registro", async (req, res) => {
     try {
         const { nombre, email, password, edad } = req.body;
 
-        // Validar que los campos obligatorios no estén vacíos
         if (!nombre || !email || !password) {
             return res.status(400).json({ error: "Nombre, email y contraseña son obligatorios" });
         }
 
-        // Validar formato de email con expresión regular
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return res.status(400).json({ error: "El formato del email no es válido" });
         }
 
-        // Validar contraseña mínima
         if (password.length < 4) {
             return res.status(400).json({ error: "La contraseña debe tener al menos 4 caracteres" });
         }
 
-        // Encriptar la contraseña (el "10" es el costo de salt rounds)
-        // Esto convierte "mipassword" en algo como "$2a$10$xK8f..."
         const passwordHash = await bcrypt.hash(password, 10);
 
-        // Insertar en la base de datos
         const [result] = await pool.execute(
             "INSERT INTO usuarios (nombre, email, password, edad) VALUES (?, ?, ?, ?)",
             [nombre, email, passwordHash, edad || null]
@@ -291,9 +349,6 @@ app.post("/registro", async (req, res) => {
     }
 });
 
-// ---- LOGIN ----
-// Recibe: { email, password }
-// Compara la contraseña ingresada con el hash almacenado
 app.post("/login", async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -302,7 +357,6 @@ app.post("/login", async (req, res) => {
             return res.status(400).json({ error: "Email y contraseña son obligatorios" });
         }
 
-        // Buscar al usuario por email
         const [rows] = await pool.execute(
             "SELECT * FROM usuarios WHERE email = ?", [email]
         );
@@ -312,16 +366,12 @@ app.post("/login", async (req, res) => {
         }
 
         const user = rows[0];
-
-        // Comparar la contraseña con el hash guardado
-        // bcrypt.compare("mipassword", "$2a$10$xK8f...") → true/false
         const passwordValida = await bcrypt.compare(password, user.password);
 
         if (!passwordValida) {
             return res.status(401).json({ error: "Credenciales incorrectas" });
         }
 
-        // Devolver datos del usuario (SIN la contraseña por seguridad)
         res.json({
             id: user.id,
             nombre: user.nombre,
@@ -334,8 +384,6 @@ app.post("/login", async (req, res) => {
     }
 });
 
-// ---- PERFIL del usuario ----
-// Devuelve los datos básicos de un usuario por su ID
 app.get("/perfil/:id", async (req, res) => {
     try {
         const [rows] = await pool.execute(
@@ -354,12 +402,9 @@ app.get("/perfil/:id", async (req, res) => {
     }
 });
 
-// ---- OBTENER PREGUNTAS del test ----
-// Devuelve todas las preguntas con sus opciones
 app.get("/preguntas", async (req, res) => {
     try {
         const [rows] = await pool.execute("SELECT * FROM preguntas ORDER BY id");
-        // Parsear el JSON de opciones para cada pregunta
         const preguntas = rows.map(p => ({
             ...p,
             opciones: typeof p.opciones === "string" ? JSON.parse(p.opciones) : p.opciones
@@ -371,11 +416,6 @@ app.get("/preguntas", async (req, res) => {
     }
 });
 
-// ---- ENVIAR RESPUESTAS y calcular resultados ----
-// Recibe: { usuario_id, respuestas: [{ pregunta_id, respuesta, perfil }] }
-// 1. Guarda cada respuesta en la tabla respuestas
-// 2. Cuenta los perfiles para determinar el dominante
-// 3. Guarda y devuelve el resultado con recomendaciones
 app.post("/respuestas", async (req, res) => {
     try {
         const { usuario_id, respuestas } = req.body;
@@ -384,7 +424,6 @@ app.post("/respuestas", async (req, res) => {
             return res.status(400).json({ error: "Datos incompletos" });
         }
 
-        // 1. Guardar cada respuesta y contar perfiles
         const conteoPerfiles = { cientifico: 0, creativo: 0, social: 0, practico: 0 };
 
         for (const r of respuestas) {
@@ -392,32 +431,27 @@ app.post("/respuestas", async (req, res) => {
                 "INSERT INTO respuestas (usuario_id, pregunta_id, respuesta, perfil) VALUES (?, ?, ?, ?)",
                 [usuario_id, r.pregunta_id, r.respuesta, r.perfil]
             );
-            // Sumar al conteo del perfil correspondiente
             if (conteoPerfiles.hasOwnProperty(r.perfil)) {
                 conteoPerfiles[r.perfil]++;
             }
         }
 
-        // 2. Determinar el perfil dominante (el que tiene más puntos)
         const perfilDominante = Object.keys(conteoPerfiles)
             .reduce((a, b) => conteoPerfiles[a] >= conteoPerfiles[b] ? a : b);
 
-        // 3. Obtener las recomendaciones del perfil dominante
         const infoPerfil = PERFILES[perfilDominante];
         const recomendaciones = {
             perfil: infoPerfil.nombre,
-            emoji: infoPerfil.emoji,
+            icono: infoPerfil.icono,
             descripcion: infoPerfil.descripcion,
             carreras: infoPerfil.carreras
         };
 
-        // 4. Guardar el resultado en la base de datos
         const [result] = await pool.execute(
             "INSERT INTO resultados (usuario_id, perfil_dominante, puntajes, recomendaciones) VALUES (?, ?, ?, ?)",
             [usuario_id, perfilDominante, JSON.stringify(conteoPerfiles), JSON.stringify(recomendaciones)]
         );
 
-        // 5. Devolver el resultado al frontend
         res.json({
             mensaje: "Test completado exitosamente",
             resultado: {
@@ -433,8 +467,6 @@ app.post("/respuestas", async (req, res) => {
     }
 });
 
-// ---- HISTORIAL de resultados ----
-// Devuelve todos los resultados de tests anteriores de un usuario
 app.get("/historial/:usuario_id", async (req, res) => {
     try {
         const [rows] = await pool.execute(
@@ -442,7 +474,6 @@ app.get("/historial/:usuario_id", async (req, res) => {
             [req.params.usuario_id]
         );
 
-        // Parsear los JSON almacenados
         const historial = rows.map(r => ({
             ...r,
             puntajes: typeof r.puntajes === "string" ? JSON.parse(r.puntajes) : r.puntajes,
@@ -456,7 +487,6 @@ app.get("/historial/:usuario_id", async (req, res) => {
     }
 });
 
-// ---- ÚLTIMO RESULTADO de un usuario ----
 app.get("/resultado/:usuario_id", async (req, res) => {
     try {
         const [rows] = await pool.execute(
@@ -480,9 +510,154 @@ app.get("/resultado/:usuario_id", async (req, res) => {
     }
 });
 
-// ---- Iniciar el servidor ----
+app.get("/cursos/:perfil", async (req, res) => {
+    try {
+        const [cursos] = await pool.execute(
+            "SELECT * FROM cursos WHERE perfil = ? ORDER BY orden",
+            [req.params.perfil]
+        );
+        res.json(cursos);
+    } catch (error) {
+        console.error("Error al obtener cursos:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
+app.get("/cursos/:perfil/progreso/:usuario_id", async (req, res) => {
+    try {
+        const [cursos] = await pool.execute(
+            "SELECT * FROM cursos WHERE perfil = ? ORDER BY orden",
+            [req.params.perfil]
+        );
+
+        const cursosConProgreso = [];
+        for (const curso of cursos) {
+            const [modulos] = await pool.execute(
+                "SELECT COUNT(*) as total FROM modulos WHERE curso_id = ?",
+                [curso.id]
+            );
+            const [completados] = await pool.execute(
+                `SELECT COUNT(*) as total FROM progreso_usuario pu
+                 JOIN modulos m ON pu.modulo_id = m.id
+                 WHERE m.curso_id = ? AND pu.usuario_id = ? AND pu.completado = TRUE`,
+                [curso.id, req.params.usuario_id]
+            );
+            const [inscrito] = await pool.execute(
+                "SELECT id FROM inscripciones WHERE usuario_id = ? AND curso_id = ?",
+                [req.params.usuario_id, curso.id]
+            );
+
+            cursosConProgreso.push({
+                ...curso,
+                total_modulos: modulos[0].total,
+                modulos_completados: completados[0].total,
+                inscrito: inscrito.length > 0
+            });
+        }
+        res.json(cursosConProgreso);
+    } catch (error) {
+        console.error("Error al obtener cursos con progreso:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
+app.post("/inscripcion", async (req, res) => {
+    try {
+        const { usuario_id, curso_id } = req.body;
+        await pool.execute(
+            "INSERT IGNORE INTO inscripciones (usuario_id, curso_id) VALUES (?, ?)",
+            [usuario_id, curso_id]
+        );
+        res.json({ mensaje: "Inscripción exitosa" });
+    } catch (error) {
+        console.error("Error en inscripción:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
+app.get("/modulos/:curso_id/:usuario_id", async (req, res) => {
+    try {
+        const [modulos] = await pool.execute(
+            "SELECT id, curso_id, titulo, descripcion, orden FROM modulos WHERE curso_id = ? ORDER BY orden",
+            [req.params.curso_id]
+        );
+
+        const modulosConProgreso = [];
+        for (const mod of modulos) {
+            const [prog] = await pool.execute(
+                "SELECT completado, puntaje FROM progreso_usuario WHERE usuario_id = ? AND modulo_id = ?",
+                [req.params.usuario_id, mod.id]
+            );
+            modulosConProgreso.push({
+                ...mod,
+                completado: prog.length > 0 ? prog[0].completado : false,
+                puntaje: prog.length > 0 ? prog[0].puntaje : null
+            });
+        }
+        res.json(modulosConProgreso);
+    } catch (error) {
+        console.error("Error al obtener módulos:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
+app.get("/modulo/:modulo_id", async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            "SELECT * FROM modulos WHERE id = ?",
+            [req.params.modulo_id]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ error: "Módulo no encontrado" });
+        }
+        const mod = rows[0];
+        mod.quiz = typeof mod.quiz === "string" ? JSON.parse(mod.quiz) : mod.quiz;
+        res.json(mod);
+    } catch (error) {
+        console.error("Error al obtener módulo:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
+app.post("/progreso", async (req, res) => {
+    try {
+        const { usuario_id, modulo_id, puntaje, total_preguntas } = req.body;
+        const completado = puntaje >= 2;
+
+        await pool.execute(
+            `INSERT INTO progreso_usuario (usuario_id, modulo_id, puntaje, total_preguntas, completado)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE puntaje = VALUES(puntaje), completado = VALUES(completado), fecha = CURRENT_TIMESTAMP`,
+            [usuario_id, modulo_id, puntaje, total_preguntas, completado]
+        );
+
+        res.json({ mensaje: completado ? "¡Módulo aprobado!" : "No aprobaste, intenta de nuevo", completado, puntaje });
+    } catch (error) {
+        console.error("Error al guardar progreso:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
+app.get("/progreso/:usuario_id", async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            `SELECT pu.*, m.titulo as modulo_titulo, m.curso_id, c.titulo as curso_titulo, c.perfil
+             FROM progreso_usuario pu
+             JOIN modulos m ON pu.modulo_id = m.id
+             JOIN cursos c ON m.curso_id = c.id
+             WHERE pu.usuario_id = ?`,
+            [req.params.usuario_id]
+        );
+        res.json(rows);
+    } catch (error) {
+        console.error("Error al obtener progreso:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
 inicializarDB().then(() => {
-    app.listen(PORT, () => {
-        console.log(`🚀 Servidor TecnoChilds corriendo en http://localhost:${PORT}`);
-    });
+        const portToUse = process.env.PORT || PORT;
+        app.listen(portToUse, () => {
+            console.log(`Servidor TecnoChilds corriendo en el puerto ${portToUse}`);
+        });
 });

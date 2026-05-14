@@ -9,6 +9,13 @@ let preguntasTest = [];   // Arreglo con todas las preguntas del servidor
 let preguntaActual = 0;   // Índice de la pregunta que se muestra actualmente
 let respuestasUsuario = []; // Respuestas seleccionadas por el usuario
 
+// ---- Variables para el sistema de cursos y quizzes ----
+let perfilUsuario = null;
+let moduloActual = null;
+let preguntaQuizActual = 0;
+let puntajeQuiz = 0;
+let cursoSeleccionadoId = null;
+
 // =============================================
 // SISTEMA DE NOTIFICACIONES (Toast)
 // =============================================
@@ -78,6 +85,7 @@ function mostrar(seccion) {
     // Cargar datos según la sección
     if (seccion === "testVocacional") cargarPreguntas();
     if (seccion === "perfil") cargarPerfil();
+    if (seccion === "misRutas") cargarMisRutas();
 
     // Actualizar la navegación
     actualizarNavegacion();
@@ -90,6 +98,7 @@ function actualizarNavegacion() {
     document.getElementById("navRegistro").style.display = logueado ? "none" : "";
     document.getElementById("navLogin").style.display = logueado ? "none" : "";
     document.getElementById("navPerfil").style.display = logueado ? "" : "none";
+    document.getElementById("navRutas").style.display = logueado ? "" : "none";
     document.getElementById("navTest").style.display = logueado ? "" : "none";
     document.getElementById("navLogout").style.display = logueado ? "" : "none";
 }
@@ -234,8 +243,8 @@ async function cargarPerfil() {
                 <div class="avatar">${iniciales}</div>
                 <div class="perfil-datos">
                     <h2>${user.nombre}</h2>
-                    <p>📧 ${user.email}</p>
-                    <p>🎂 ${user.edad ? user.edad + " años" : "Edad no registrada"}</p>
+                    <p>Correo: ${user.email}</p>
+                    <p>Edad: ${user.edad ? user.edad + " años" : "Edad no registrada"}</p>
                 </div>
             </div>
             <button class="btn-primary" onclick="mostrar('testVocacional')" style="margin-top:20px;">
@@ -526,3 +535,246 @@ document.addEventListener("DOMContentLoaded", () => {
 
     observer.observe(document.body, { childList: true, subtree: true });
 });
+
+// =============================================
+// LÓGICA DE RUTAS DE APRENDIZAJE (CURSOS)
+// =============================================
+
+async function cargarMisRutas() {
+    const usuarioId = localStorage.getItem("usuarioId");
+    if (!usuarioId) return mostrar("login");
+
+    try {
+        // 1. Obtener el perfil dominante del usuario desde su último resultado
+        const resRes = await fetch(`/resultado/${usuarioId}`);
+        if (!resRes.ok) {
+            document.getElementById("contenedorRutas").innerHTML = `
+                <div class="glass-card" style="text-align:center; grid-column: 1/-1;">
+                    <p>Primero debes realizar el Test Vocacional para descubrir tu ruta.</p>
+                    <button class="btn-primary" onclick="mostrar('testVocacional')" style="margin-top:15px;">Realizar Test</button>
+                </div>`;
+            return;
+        }
+        const resultado = await resRes.json();
+        
+        // El perfil viene del servidor (ej: "cientifico", "creativo")
+        // Necesitamos mapear el nombre legible al ID del perfil si es necesario
+        // En este caso el backend espera el key (cientifico, creativo, etc)
+        const perfilKey = Object.keys(resultado.puntajes).reduce((a, b) => 
+            resultado.puntajes[a] > resultado.puntajes[b] ? a : b
+        );
+        perfilUsuario = perfilKey;
+
+        // 2. Obtener los cursos de ese perfil con el progreso del usuario
+        const resCursos = await fetch(`/cursos/${perfilKey}/progreso/${usuarioId}`);
+        const cursos = await resCursos.json();
+
+        const contenedor = document.getElementById("contenedorRutas");
+        if (cursos.length === 0) {
+            contenedor.innerHTML = "<p>No hay cursos disponibles para tu perfil aún.</p>";
+            return;
+        }
+
+        contenedor.innerHTML = cursos.map(c => {
+            const porcentaje = c.total_modulos > 0 ? Math.round((c.modulos_completados / c.total_modulos) * 100) : 0;
+            return `
+                <div class="curso-card animate-in" onclick="verCurso(${c.id}, '${c.titulo.replace(/'/g, "\\'")}', '${c.descripcion.replace(/'/g, "\\'")}')">
+                    <div class="curso-icono">${c.icono || "◈"}</div>
+                    <div class="curso-info">
+                        <h3>${c.titulo}</h3>
+                        <p>${c.descripcion}</p>
+                    </div>
+                    <div class="progreso-container">
+                        <div class="progreso-header">
+                            <span>Progreso</span>
+                            <span>${porcentaje}%</span>
+                        </div>
+                        <div class="progreso-bar-track">
+                            <div class="progreso-bar-fill" style="width: ${porcentaje}%"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+    } catch (error) {
+        console.error("Error al cargar rutas:", error);
+        mostrarToast("Error al cargar tus rutas de aprendizaje", "error");
+    }
+}
+
+async function verCurso(cursoId, titulo, descripcion) {
+    const usuarioId = localStorage.getItem("usuarioId");
+    cursoSeleccionadoId = cursoId;
+    
+    document.getElementById("tituloCurso").textContent = titulo;
+    document.getElementById("descCurso").textContent = descripcion;
+    mostrar("vistaCurso");
+
+    try {
+        // Inscribir al usuario automáticamente si no lo está
+        await fetch("/inscripcion", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ usuario_id: usuarioId, curso_id: cursoId })
+        });
+
+        // Cargar módulos
+        const res = await fetch(`/modulos/${cursoId}/${usuarioId}`);
+        const modulos = await res.json();
+
+        const contenedor = document.getElementById("contenedorModulos");
+        contenedor.innerHTML = modulos.map(m => `
+            <div class="modulo-item-card animate-in" onclick="verModulo(${m.id})">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <span class="pregunta-categoria">MÓDULO ${m.orden}</span>
+                    ${m.completado ? '<span style="color:var(--success); font-size:1.2rem;">✓</span>' : ""}
+                </div>
+                <h3 style="margin: 10px 0;">${m.titulo}</h3>
+                <p style="font-size:0.85rem; color:var(--text-secondary);">${m.descripcion}</p>
+                <div style="margin-top:15px;">
+                    <button class="btn-secondary btn-full" style="padding: 8px;">
+                        ${m.completado ? "Repasar Contenido" : "Comenzar Módulo"}
+                    </button>
+                </div>
+            </div>
+        `).join("");
+
+    } catch (error) {
+        mostrarToast("Error al cargar el curso", "error");
+    }
+}
+
+async function verModulo(moduloId) {
+    mostrar("vistaModulo");
+    document.getElementById("contenedorVideo").innerHTML = "<p>Cargando contenido...</p>";
+    document.getElementById("contenedorLectura").innerHTML = "";
+    document.getElementById("seccionQuiz").style.display = "none";
+
+    try {
+        const res = await fetch(`/modulo/${moduloId}`);
+        const modulo = await res.json();
+        moduloActual = modulo;
+
+        document.getElementById("tituloModulo").textContent = modulo.titulo;
+        
+        // Video embed
+        if (modulo.video_url) {
+            const videoId = modulo.video_url.split("/").pop();
+            document.getElementById("contenedorVideo").innerHTML = `
+                <div class="video-wrapper">
+                    <iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe>
+                </div>`;
+        } else {
+            document.getElementById("contenedorVideo").innerHTML = "";
+        }
+
+        // Lectura (convertir markdown simple a HTML)
+        document.getElementById("contenedorLectura").innerHTML = modulo.lectura
+            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+            .replace(/\n/g, "<br>");
+
+        // Quiz
+        if (modulo.quiz && modulo.quiz.length > 0) {
+            document.getElementById("seccionQuiz").style.display = "block";
+            preguntaQuizActual = 0;
+            puntajeQuiz = 0;
+            mostrarPreguntaQuiz();
+        }
+
+        // Botón volver
+        document.getElementById("btnVolverCurso").onclick = () => {
+            // Recargar la vista del curso para ver el progreso actualizado
+            const titulo = document.getElementById("tituloCurso").textContent;
+            const desc = document.getElementById("descCurso").textContent;
+            verCurso(modulo.curso_id, titulo, desc);
+        };
+
+    } catch (error) {
+        mostrarToast("Error al cargar el módulo", "error");
+    }
+}
+
+function mostrarPreguntaQuiz() {
+    const quiz = moduloActual.quiz;
+    const q = quiz[preguntaQuizActual];
+    
+    document.getElementById("preguntaQuiz").textContent = `${preguntaQuizActual + 1}. ${q.pregunta}`;
+    const contenedorOpciones = document.getElementById("opcionesQuiz");
+    
+    contenedorOpciones.innerHTML = q.opciones.map((op, i) => `
+        <button class="opcion-card" onclick="seleccionarOpcionQuiz(${i})">
+            <span class="opcion-letra">${String.fromCharCode(65 + i)}</span>
+            <span class="opcion-texto">${op}</span>
+        </button>
+    `).join("");
+    
+    document.getElementById("btnSiguienteQuiz").style.display = "none";
+}
+
+function seleccionarOpcionQuiz(index) {
+    const quiz = moduloActual.quiz;
+    const q = quiz[preguntaQuizActual];
+    const botones = document.querySelectorAll("#opcionesQuiz .opcion-card");
+    
+    // Deshabilitar botones para que no cambie de opinión
+    botones.forEach(b => b.onclick = null);
+    
+    if (index === q.correcta) {
+        puntajeQuiz++;
+        botones[index].classList.add("toast-success");
+        botones[index].style.borderColor = "var(--success)";
+        mostrarToast("¡Correcto!", "success");
+    } else {
+        botones[index].classList.add("toast-error");
+        botones[index].style.borderColor = "var(--error)";
+        botones[q.correcta].style.borderColor = "var(--success)";
+        mostrarToast("Incorrecto", "error");
+    }
+
+    const btnSig = document.getElementById("btnSiguienteQuiz");
+    btnSig.style.display = "block";
+    
+    if (preguntaQuizActual < quiz.length - 1) {
+        btnSig.textContent = "Siguiente Pregunta";
+        btnSig.onclick = () => {
+            preguntaQuizActual++;
+            mostrarPreguntaQuiz();
+        };
+    } else {
+        btnSig.textContent = "Finalizar Quiz";
+        btnSig.onclick = finalizarQuiz;
+    }
+}
+
+async function finalizarQuiz() {
+    const usuarioId = localStorage.getItem("usuarioId");
+    const total = moduloActual.quiz.length;
+    
+    try {
+        const res = await fetch("/progreso", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                usuario_id: usuarioId,
+                modulo_id: moduloActual.id,
+                puntaje: puntajeQuiz,
+                total_preguntas: total
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (data.completado) {
+            mostrarToast(`¡Felicidades! Aprobaste con ${puntajeQuiz}/${total}`, "success");
+        } else {
+            mostrarToast(`Obtuviste ${puntajeQuiz}/${total}. Necesitas al menos 2 correctas para aprobar.`, "warning");
+        }
+        
+        // Volver a la vista del curso
+        document.getElementById("btnVolverCurso").click();
+        
+    } catch (error) {
+        mostrarToast("Error al guardar progreso", "error");
+    }
+}
